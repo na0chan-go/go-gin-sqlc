@@ -1,7 +1,9 @@
 version: '2'
 sql:
   - engine: 'mysql'
-    queries: 'db/query'
+    queries:
+      - 'db/query/users.sql'
+      - 'db/query/password_resets.sql'
     schema: 'db/migration'
     gen:
       go:

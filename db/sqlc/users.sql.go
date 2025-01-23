@@ -8,26 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
-	"time"
 )
-
-const createPasswordReset = `-- name: CreatePasswordReset :execresult
-INSERT INTO password_resets (
-    user_id, token, expires_at
-) VALUES (
-    ?, ?, ?
-)
-`
-
-type CreatePasswordResetParams struct {
-	UserID    int64     `json:"user_id"`
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-}
-
-func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createPasswordReset, arg.UserID, arg.Token, arg.ExpiresAt)
-}
 
 const createUser = `-- name: CreateUser :execresult
 INSERT INTO users (
@@ -55,16 +36,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (sql.Res
 	)
 }
 
-const deletePasswordReset = `-- name: DeletePasswordReset :exec
-DELETE FROM password_resets
-WHERE token = ?
-`
-
-func (q *Queries) DeletePasswordReset(ctx context.Context, token string) error {
-	_, err := q.db.ExecContext(ctx, deletePasswordReset, token)
-	return err
-}
-
 const deleteUser = `-- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = ?
@@ -73,32 +44,6 @@ WHERE id = ?
 func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteUser, id)
 	return err
-}
-
-const getPasswordResetByToken = `-- name: GetPasswordResetByToken :one
-SELECT user_id, token, expires_at, created_at
-FROM password_resets
-WHERE token = ? AND expires_at > NOW()
-LIMIT 1
-`
-
-type GetPasswordResetByTokenRow struct {
-	UserID    int64        `json:"user_id"`
-	Token     string       `json:"token"`
-	ExpiresAt time.Time    `json:"expires_at"`
-	CreatedAt sql.NullTime `json:"created_at"`
-}
-
-func (q *Queries) GetPasswordResetByToken(ctx context.Context, token string) (GetPasswordResetByTokenRow, error) {
-	row := q.db.QueryRowContext(ctx, getPasswordResetByToken, token)
-	var i GetPasswordResetByTokenRow
-	err := row.Scan(
-		&i.UserID,
-		&i.Token,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const getUser = `-- name: GetUser :one
@@ -278,5 +223,21 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.Status,
 		arg.ID,
 	)
+	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = ?
+WHERE id = ?
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash string `json:"password_hash"`
+	ID           int64  `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
 	return err
 }
