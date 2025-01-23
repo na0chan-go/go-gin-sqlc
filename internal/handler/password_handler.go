@@ -18,12 +18,14 @@ import (
 type PasswordHandler struct {
 	queries db.Querier
 	config  *config.Config
+	mailer  util.Mailer
 }
 
 func NewPasswordHandler(sqlDB *sql.DB, cfg *config.Config) *PasswordHandler {
 	return &PasswordHandler{
 		queries: db.New(sqlDB),
 		config:  cfg,
+		mailer:  util.NewSMTPMailer(cfg.Mail),
 	}
 }
 
@@ -90,7 +92,7 @@ func (h *PasswordHandler) RequestPasswordReset(c *gin.Context) {
 
 	// メールの送信
 	mailBody := util.GeneratePasswordResetEmail(resetURL)
-	err = util.SendMail(h.config.Mail, user.Email, "パスワードリセットのリクエスト", mailBody)
+	err = h.mailer.SendMail(user.Email, "パスワードリセットのリクエスト", mailBody)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "メールの送信に失敗しました"})
 		return

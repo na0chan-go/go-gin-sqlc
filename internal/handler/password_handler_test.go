@@ -38,8 +38,8 @@ type MockMailer struct {
 	mock.Mock
 }
 
-func (m *MockMailer) SendMail(config util.MailConfig, to, subject, body string) error {
-	args := m.Called(config, to, subject, body)
+func (m *MockMailer) SendMail(to, subject, body string) error {
+	args := m.Called(to, subject, body)
 	return args.Error(0)
 }
 
@@ -50,16 +50,10 @@ func TestRequestPasswordReset(t *testing.T) {
 	// テスト用の時間を設定
 	now := time.Now()
 
-	// オリジナルのSendMail関数を保存
-	originalSendMail := util.SendMail
-	defer func() {
-		util.SendMail = originalSendMail
-	}()
-
 	tests := []struct {
 		name           string
 		requestBody    RequestPasswordResetRequest
-		setupMock      func(*MockQueries)
+		setupMock      func(*MockQueries, *MockMailer)
 		expectedStatus int
 		expectedError  string
 	}{
@@ -68,7 +62,7 @@ func TestRequestPasswordReset(t *testing.T) {
 			requestBody: RequestPasswordResetRequest{
 				Email: "test@example.com",
 			},
-			setupMock: func(m *MockQueries) {
+			setupMock: func(m *MockQueries, mailer *MockMailer) {
 				m.On("GetUserByEmail", mock.Anything, "test@example.com").Return(db.User{
 					ID:        1,
 					Email:     "test@example.com",
@@ -78,6 +72,12 @@ func TestRequestPasswordReset(t *testing.T) {
 				mockResult := new(MockSQLResult)
 				mockResult.On("LastInsertId").Return(int64(1), nil)
 				m.On("CreatePasswordReset", mock.Anything, mock.AnythingOfType("db.CreatePasswordResetParams")).Return(mockResult, nil)
+
+				mailer.On("SendMail",
+					"test@example.com",
+					"パスワードリセットのリクエスト",
+					mock.AnythingOfType("string"),
+				).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -86,7 +86,7 @@ func TestRequestPasswordReset(t *testing.T) {
 			requestBody: RequestPasswordResetRequest{
 				Email: "invalid-email",
 			},
-			setupMock:      func(m *MockQueries) {},
+			setupMock:      func(m *MockQueries, mailer *MockMailer) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Key: 'RequestPasswordResetRequest.Email' Error:Field validation for 'Email' failed on the 'email' tag",
 		},
@@ -95,7 +95,7 @@ func TestRequestPasswordReset(t *testing.T) {
 			requestBody: RequestPasswordResetRequest{
 				Email: "nonexistent@example.com",
 			},
-			setupMock: func(m *MockQueries) {
+			setupMock: func(m *MockQueries, mailer *MockMailer) {
 				m.On("GetUserByEmail", mock.Anything, "nonexistent@example.com").Return(db.User{}, sql.ErrNoRows)
 			},
 			expectedStatus: http.StatusOK, // セキュリティのため、成功レスポンスを返す
@@ -106,12 +106,8 @@ func TestRequestPasswordReset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// モックの準備
 			mockQueries := new(MockQueries)
-			tt.setupMock(mockQueries)
-
-			// メール送信のモック
-			util.SendMail = func(config util.MailConfig, to, subject, body string) error {
-				return nil
-			}
+			mockMailer := new(MockMailer)
+			tt.setupMock(mockQueries, mockMailer)
 
 			// ハンドラーの準備
 			handler := &PasswordHandler{
@@ -126,6 +122,7 @@ func TestRequestPasswordReset(t *testing.T) {
 						From:     "noreply@example.com",
 					},
 				},
+				mailer: mockMailer,
 			}
 
 			// HTTPリクエストの準備
@@ -152,6 +149,7 @@ func TestRequestPasswordReset(t *testing.T) {
 
 			// モックの検証
 			mockQueries.AssertExpectations(t)
+			mockMailer.AssertExpectations(t)
 		})
 	}
 }
