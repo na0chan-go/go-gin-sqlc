@@ -7,6 +7,7 @@ import (
 	"go-gin-sqlc/internal/config"
 	"go-gin-sqlc/internal/handler"
 	"go-gin-sqlc/internal/infrastructure/database"
+	"go-gin-sqlc/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,20 +26,17 @@ func main() {
 	// Ginルーターの初期化
 	r := gin.Default()
 
-	// ユーザーハンドラーの初期化と登録
-	userHandler := handler.NewUserHandler(db)
-	userHandler.RegisterRoutes(r)
+	// ミドルウェアの適用
+	r.Use(middleware.Logger())
 
-	// ルートエンドポイント
+	// パブリックルート
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Welcome to Go-Gin-SQLC API",
 		})
 	})
 
-	// ヘルスチェックエンドポイント
 	r.GET("/health", func(c *gin.Context) {
-		// データベース接続の確認
 		err := db.Ping()
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -47,12 +45,24 @@ func main() {
 			})
 			return
 		}
-
 		c.JSON(200, gin.H{
 			"status":  "ok",
 			"message": "サービスは正常に動作しています",
 		})
 	})
+
+	// 認証ハンドラーの初期化と登録
+	authHandler := handler.NewAuthHandler(db)
+	authHandler.RegisterRoutes(r)
+
+	// 認証が必要なルート
+	authorized := r.Group("/api")
+	authorized.Use(middleware.AuthRequired())
+	{
+		// ユーザーハンドラーの初期化と登録
+		userHandler := handler.NewUserHandler(db)
+		userHandler.RegisterRoutes(authorized)
+	}
 
 	// サーバーの起動
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)

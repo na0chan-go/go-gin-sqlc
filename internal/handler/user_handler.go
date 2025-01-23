@@ -24,7 +24,7 @@ func NewUserHandler(sqlDB *sql.DB) *UserHandler {
 }
 
 // RegisterRoutes はユーザー関連のルートを登録します
-func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
+func (h *UserHandler) RegisterRoutes(r gin.IRouter) {
 	users := r.Group("/users")
 	{
 		users.POST("", h.CreateUser)
