@@ -8,106 +8,101 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
-const createUser = `-- name: CreateUser :execresult
-INSERT INTO users (
-    email, password_hash, first_name, last_name, status
+const createPasswordReset = `-- name: CreatePasswordReset :execresult
+INSERT INTO password_resets (
+    user_id, token, expires_at
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?
 )
 `
 
-type CreateUserParams struct {
-	Email        string          `json:"email"`
-	PasswordHash string          `json:"password_hash"`
-	FirstName    string          `json:"first_name"`
-	LastName     string          `json:"last_name"`
-	Status       NullUsersStatus `json:"status"`
+type CreatePasswordResetParams struct {
+	UserID    int64     `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createUser,
-		arg.Email,
-		arg.PasswordHash,
-		arg.FirstName,
-		arg.LastName,
-		arg.Status,
-	)
+func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createPasswordReset, arg.UserID, arg.Token, arg.ExpiresAt)
 }
 
-const deleteUser = `-- name: DeleteUser :exec
-DELETE FROM users
-WHERE id = ?
+const deletePasswordReset = `-- name: DeletePasswordReset :exec
+DELETE FROM password_resets
+WHERE token = ?
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteUser, id)
+func (q *Queries) DeletePasswordReset(ctx context.Context, token string) error {
+	_, err := q.db.ExecContext(ctx, deletePasswordReset, token)
 	return err
 }
 
-const getUser = `-- name: GetUser :one
-SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at FROM users
-WHERE id = ? LIMIT 1
+const getPasswordResetByToken = `-- name: GetPasswordResetByToken :one
+SELECT user_id, token, expires_at, created_at
+FROM password_resets
+WHERE token = ? AND expires_at > NOW()
+LIMIT 1
 `
 
-func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUser, id)
-	var i User
+type GetPasswordResetByTokenRow struct {
+	UserID    int64        `json:"user_id"`
+	Token     string       `json:"token"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
+func (q *Queries) GetPasswordResetByToken(ctx context.Context, token string) (GetPasswordResetByTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getPasswordResetByToken, token)
+	var i GetPasswordResetByTokenRow
 	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.FirstName,
-		&i.LastName,
-		&i.Status,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
 		&i.CreatedAt,
-		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at FROM users
-WHERE email = ? LIMIT 1
-`
-
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.FirstName,
-		&i.LastName,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getUsersByStatus = `-- name: GetUsersByStatus :many
-SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at FROM users
-WHERE status = ?
+const searchUsers = `-- name: SearchUsers :many
+SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at
+FROM users
+WHERE (
+    email LIKE CONCAT('%', ?, '%') OR
+    first_name LIKE CONCAT('%', ?, '%') OR
+    last_name LIKE CONCAT('%', ?, '%')
+)
+AND (? IS NULL OR status = ?)
 ORDER BY id
 LIMIT ? OFFSET ?
 `
 
-type GetUsersByStatusParams struct {
-	Status NullUsersStatus `json:"status"`
-	Limit  int32           `json:"limit"`
-	Offset int32           `json:"offset"`
+type SearchUsersParams struct {
+	CONCAT   interface{}     `json:"CONCAT"`
+	CONCAT_2 interface{}     `json:"CONCAT_2"`
+	CONCAT_3 interface{}     `json:"CONCAT_3"`
+	Column4  interface{}     `json:"column_4"`
+	Status   NullUsersStatus `json:"status"`
+	Limit    int32           `json:"limit"`
+	Offset   int32           `json:"offset"`
 }
 
-func (q *Queries) GetUsersByStatus(ctx context.Context, arg GetUsersByStatusParams) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, getUsersByStatus, arg.Status, arg.Limit, arg.Offset)
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, searchUsers,
+		arg.CONCAT,
+		arg.CONCAT_2,
+		arg.CONCAT_3,
+		arg.Column4,
+		arg.Status,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	items := []User{}
 	for rows.Next() {
 		var i User
 		if err := rows.Scan(
@@ -131,92 +126,4 @@ func (q *Queries) GetUsersByStatus(ctx context.Context, arg GetUsersByStatusPara
 		return nil, err
 	}
 	return items, nil
-}
-
-const listUsers = `-- name: ListUsers :many
-SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at FROM users
-ORDER BY id
-LIMIT ? OFFSET ?
-`
-
-type ListUsersParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
-}
-
-func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []User
-	for rows.Next() {
-		var i User
-		if err := rows.Scan(
-			&i.ID,
-			&i.Email,
-			&i.PasswordHash,
-			&i.FirstName,
-			&i.LastName,
-			&i.Status,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateUser = `-- name: UpdateUser :exec
-UPDATE users
-SET 
-    email = ?,
-    first_name = ?,
-    last_name = ?,
-    status = ?
-WHERE id = ?
-`
-
-type UpdateUserParams struct {
-	Email     string          `json:"email"`
-	FirstName string          `json:"first_name"`
-	LastName  string          `json:"last_name"`
-	Status    NullUsersStatus `json:"status"`
-	ID        int64           `json:"id"`
-}
-
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
-	_, err := q.db.ExecContext(ctx, updateUser,
-		arg.Email,
-		arg.FirstName,
-		arg.LastName,
-		arg.Status,
-		arg.ID,
-	)
-	return err
-}
-
-const updateUserPassword = `-- name: UpdateUserPassword :exec
-UPDATE users
-SET password_hash = ?
-WHERE id = ?
-`
-
-type UpdateUserPasswordParams struct {
-	PasswordHash string `json:"password_hash"`
-	ID           int64  `json:"id"`
-}
-
-func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
-	return err
 }

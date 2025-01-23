@@ -14,7 +14,7 @@ import (
 )
 
 type UserHandler struct {
-	queries *db.Queries
+	queries db.Querier
 }
 
 func NewUserHandler(sqlDB *sql.DB) *UserHandler {
@@ -32,6 +32,7 @@ func (h *UserHandler) RegisterRoutes(r gin.IRouter) {
 		users.GET("/:id", h.GetUser)
 		users.PUT("/:id", h.UpdateUser)
 		users.DELETE("/:id", h.DeleteUser)
+		users.GET("/search", h.SearchUsers)
 	}
 }
 
@@ -208,6 +209,44 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "ユーザーを削除しました"})
+}
+
+// SearchUsers はユーザーを検索します
+func (h *UserHandler) SearchUsers(c *gin.Context) {
+	query := c.Query("q")
+	status := c.Query("status")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	var statusParam sql.NullString
+	if status != "" {
+		statusParam = sql.NullString{
+			String: status,
+			Valid:  true,
+		}
+	}
+
+	users, err := h.queries.SearchUsers(c, db.SearchUsersParams{
+		SearchQuery: query,
+		Status:      statusParam,
+		Limit:       int32(limit),
+		Offset:      int32(offset),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := dto.UsersResponse{
+		Users: make([]dto.UserResponse, len(users)),
+		Total: len(users),
+	}
+
+	for i, user := range users {
+		response.Users[i] = toUserResponse(user)
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // toUserResponse はデータベースのユーザーモデルをレスポンス用の構造体に変換します

@@ -17,7 +17,7 @@ func main() {
 	cfg := config.New()
 
 	// データベース接続
-	db, err := database.NewConnection(cfg.DB)
+	db, err := database.Connect(cfg.DB)
 	if err != nil {
 		log.Fatal("データベース接続の確立に失敗しました:", err)
 	}
@@ -54,6 +54,10 @@ func main() {
 	// 認証ハンドラーの初期化と登録
 	authHandler := handler.NewAuthHandler(db)
 	authHandler.RegisterRoutes(r)
+
+	// パスワードリセットハンドラーの初期化と登録
+	passwordHandler := handler.NewPasswordHandler(db, cfg)
+	passwordHandler.RegisterRoutes(r)
 
 	// 認証が必要なルート
 	authorized := r.Group("/api")

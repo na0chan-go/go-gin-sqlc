@@ -5,6 +5,7 @@
 package db
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"time"
@@ -51,6 +52,14 @@ func (ns NullUsersStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UsersStatus), nil
+}
+
+type PasswordReset struct {
+	ID        int64        `json:"id"`
+	UserID    int64        `json:"user_id"`
+	Token     string       `json:"token"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	CreatedAt sql.NullTime `json:"created_at"`
 }
 
 type User struct {
