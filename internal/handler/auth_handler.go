@@ -36,11 +36,19 @@ type LoginResponse struct {
 	} `json:"user"`
 }
 
+type RegisterRequest struct {
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=8"`
+	FirstName string `json:"first_name" binding:"required"`
+	LastName  string `json:"last_name" binding:"required"`
+}
+
 // RegisterRoutes は認証関連のルートを登録します
 func (h *AuthHandler) RegisterRoutes(r gin.IRouter) {
 	auth := r.Group("/auth")
 	{
 		auth.POST("/login", h.Login)
+		auth.POST("/register", h.Register)
 	}
 }
 
@@ -86,4 +94,68 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	response.User.LastName = user.LastName
 
 	c.JSON(http.StatusOK, response)
+}
+
+// Register はユーザー登録を処理します
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// メールアドレスの重複チェック
+	_, err := h.queries.GetUserByEmail(c, req.Email)
+	if err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "このメールアドレスは既に登録されています"})
+		return
+	} else if err != sql.ErrNoRows {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// パスワードのハッシュ化
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "パスワードのハッシュ化に失敗しました"})
+		return
+	}
+
+	// ユーザーの作成
+	result, err := h.queries.CreateUser(c, db.CreateUserParams{
+		Email:        req.Email,
+		PasswordHash: string(hashedPassword),
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		Status:       db.NullUsersStatus{UsersStatus: db.UsersStatusActive, Valid: true},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 作成されたユーザーのIDを取得
+	userID, err := result.LastInsertId()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// JWTトークンの生成
+	token, err := util.GenerateToken(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "トークンの生成に失敗しました"})
+		return
+	}
+
+	// レスポンスの作成
+	response := LoginResponse{
+		Token: token,
+	}
+	response.User.ID = userID
+	response.User.Email = req.Email
+	response.User.FirstName = req.FirstName
+	response.User.LastName = req.LastName
+
+	c.JSON(http.StatusCreated, response)
 }
