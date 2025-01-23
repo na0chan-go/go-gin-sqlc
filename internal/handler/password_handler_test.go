@@ -33,12 +33,28 @@ func (m *MockSQLResult) RowsAffected() (int64, error) {
 	return args.Get(0).(int64), args.Error(1)
 }
 
+// MockMailer はメール送信のモックです
+type MockMailer struct {
+	mock.Mock
+}
+
+func (m *MockMailer) SendMail(config util.MailConfig, to, subject, body string) error {
+	args := m.Called(config, to, subject, body)
+	return args.Error(0)
+}
+
 func TestRequestPasswordReset(t *testing.T) {
 	// Ginのテストモード設定
 	gin.SetMode(gin.TestMode)
 
 	// テスト用の時間を設定
 	now := time.Now()
+
+	// オリジナルのSendMail関数を保存
+	originalSendMail := util.SendMail
+	defer func() {
+		util.SendMail = originalSendMail
+	}()
 
 	tests := []struct {
 		name           string
@@ -91,6 +107,11 @@ func TestRequestPasswordReset(t *testing.T) {
 			// モックの準備
 			mockQueries := new(MockQueries)
 			tt.setupMock(mockQueries)
+
+			// メール送信のモック
+			util.SendMail = func(config util.MailConfig, to, subject, body string) error {
+				return nil
+			}
 
 			// ハンドラーの準備
 			handler := &PasswordHandler{
