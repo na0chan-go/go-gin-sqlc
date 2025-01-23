@@ -215,12 +215,14 @@ func TestResetPassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// モックの準備
 			mockQueries := new(MockQueries)
+			mockMailer := new(MockMailer)
 			tt.setupMock(mockQueries)
 
 			// ハンドラーの準備
 			handler := &PasswordHandler{
 				queries: mockQueries,
 				config:  &config.Config{},
+				mailer:  mockMailer,
 			}
 
 			// HTTPリクエストの準備
