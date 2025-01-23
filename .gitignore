@@ -1,0 +1,35 @@
+# バイナリ
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# テスト
+*.test
+*.out
+
+# 依存関係
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 環境変数
+.env
+
+# データベース
+*.db
+
+# ビルド
+/bin/
+/tmp/
+
+# macOS
+.DS_Store
+
+# ログ
+*.log 
