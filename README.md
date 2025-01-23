@@ -10,6 +10,10 @@
 - MySQL 8.0
 - Docker & Docker Compose
 
+## ドキュメント
+
+- [API ドキュメント](docs/api.md) - 利用可能な全てのエンドポイントの詳細な説明
+
 ## プロジェクト構造
 
 ```
@@ -20,6 +24,8 @@
 │   ├── migration/      # データベースマイグレーションファイル
 │   ├── queries/        # SQLCのクエリ定義
 │   └── sqlc/          # SQLCで生成されたコード
+├── docs/              # ドキュメント
+│   └── api.md         # APIドキュメント
 ├── internal/
 │   ├── handler/       # HTTPハンドラー
 │   ├── repository/    # データベースアクセス層

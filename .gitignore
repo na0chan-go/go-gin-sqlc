@@ -1,18 +1,14 @@
-# バイナリ
+# Go関連
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# テスト
 *.test
 *.out
+go.work
 
-# 依存関係
-/vendor/
-
-# IDE
+# IDE関連
 .idea/
 .vscode/
 *.swp
@@ -21,15 +17,16 @@
 # 環境変数
 .env
 
-# データベース
-*.db
+# データベース関連
+mysql_data/
+
+# OS関連
+.DS_Store
+Thumbs.db
 
 # ビルド
 /bin/
 /tmp/
-
-# macOS
-.DS_Store
 
 # ログ
 *.log 
