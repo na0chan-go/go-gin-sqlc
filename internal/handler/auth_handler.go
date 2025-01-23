@@ -71,6 +71,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// ユーザーステータスの確認
+	if !user.Status.Valid || user.Status.UsersStatus != db.UsersStatusActive {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "このアカウントは無効です"})
+		return
+	}
+
 	// パスワードの検証
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "メールアドレスまたはパスワードが正しくありません"})
