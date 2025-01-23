@@ -1,3 +1,39 @@
+-- name: CreateUser :execresult
+INSERT INTO users (
+    email, password_hash, first_name, last_name, status
+) VALUES (
+    ?, ?, ?, ?, ?
+);
+
+-- name: GetUser :one
+SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at
+FROM users
+WHERE id = ? LIMIT 1;
+
+-- name: ListUsers :many
+SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at
+FROM users
+ORDER BY id
+LIMIT ? OFFSET ?;
+
+-- name: UpdateUser :exec
+UPDATE users
+SET 
+    email = ?,
+    first_name = ?,
+    last_name = ?,
+    status = ?
+WHERE id = ?;
+
+-- name: DeleteUser :exec
+DELETE FROM users
+WHERE id = ?;
+
+-- name: GetUserByEmail :one
+SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at
+FROM users
+WHERE email = ? LIMIT 1;
+
 -- name: SearchUsers :many
 SELECT id, email, password_hash, first_name, last_name, status, created_at, updated_at
 FROM users

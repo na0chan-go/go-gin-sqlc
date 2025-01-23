@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 
 	db "go-gin-sqlc/db/sqlc"
 	"go-gin-sqlc/internal/handler/dto"
@@ -214,35 +215,38 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 // SearchUsers はユーザーを検索します
 func (h *UserHandler) SearchUsers(c *gin.Context) {
 	query := c.Query("q")
-	status := c.Query("status")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	var statusParam sql.NullString
-	if status != "" {
-		statusParam = sql.NullString{
-			String: status,
-			Valid:  true,
-		}
-	}
-
-	users, err := h.queries.SearchUsers(c, db.SearchUsersParams{
-		SearchQuery: query,
-		Status:      statusParam,
-		Limit:       int32(limit),
-		Offset:      int32(offset),
+	users, err := h.queries.ListUsers(c, db.ListUsersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	response := dto.UsersResponse{
-		Users: make([]dto.UserResponse, len(users)),
-		Total: len(users),
+	// クライアントサイドでフィルタリング
+	filteredUsers := users
+	if query != "" {
+		filteredUsers = make([]db.User, 0)
+		queryLower := strings.ToLower(query)
+		for _, user := range users {
+			if strings.Contains(strings.ToLower(user.Email), queryLower) ||
+				strings.Contains(strings.ToLower(user.FirstName), queryLower) ||
+				strings.Contains(strings.ToLower(user.LastName), queryLower) {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
 	}
 
-	for i, user := range users {
+	response := dto.UsersResponse{
+		Users: make([]dto.UserResponse, len(filteredUsers)),
+		Total: len(filteredUsers),
+	}
+
+	for i, user := range filteredUsers {
 		response.Users[i] = toUserResponse(user)
 	}
 

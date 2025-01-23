@@ -11,9 +11,15 @@ import (
 
 type Querier interface {
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (sql.Result, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (sql.Result, error)
 	DeletePasswordReset(ctx context.Context, token string) error
+	DeleteUser(ctx context.Context, id int64) error
 	GetPasswordResetByToken(ctx context.Context, token string) (GetPasswordResetByTokenRow, error)
+	GetUser(ctx context.Context, id int64) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 }
 
 var _ Querier = (*Queries)(nil)
