@@ -12,7 +12,7 @@ import (
 )
 
 type AuthHandler struct {
-	queries *db.Queries
+	queries db.Querier
 }
 
 func NewAuthHandler(sqlDB *sql.DB) *AuthHandler {
