@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,8 +85,17 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 
 // ListUsers はユーザー一覧を取得します
 func (h *UserHandler) ListUsers(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil || limit < 0 || limit > math.MaxInt32 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無効なlimitパラメータ"})
+		return
+	}
+
+	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if err != nil || offset < 0 || offset > math.MaxInt32 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無効なoffsetパラメータ"})
+		return
+	}
 
 	users, err := h.queries.ListUsers(c, db.ListUsersParams{
 		Limit:  int32(limit),
@@ -215,8 +225,17 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 // SearchUsers はユーザーを検索します
 func (h *UserHandler) SearchUsers(c *gin.Context) {
 	query := c.Query("q")
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil || limit < 0 || limit > math.MaxInt32 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無効なlimitパラメータ"})
+		return
+	}
+
+	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if err != nil || offset < 0 || offset > math.MaxInt32 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無効なoffsetパラメータ"})
+		return
+	}
 
 	users, err := h.queries.ListUsers(c, db.ListUsersParams{
 		Limit:  int32(limit),
