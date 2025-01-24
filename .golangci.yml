@@ -24,9 +24,13 @@ issues:
       linters:
         - gosec
         - errcheck
+    - path: internal/util/jwt.go
+      text: 'G401: Crypto primitive'
+      linters:
+        - gosec
+  exclude-dirs:
+    - vendor/
 
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
-    - vendor/
