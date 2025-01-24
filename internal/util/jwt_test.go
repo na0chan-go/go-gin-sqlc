@@ -69,7 +69,7 @@ func TestValidateToken_Invalid(t *testing.T) {
 		{
 			name:    "不正なトークン",
 			token:   "invalid.token.string",
-			wantErr: "signature is invalid",
+			wantErr: "token is malformed",
 		},
 		{
 			name:    "不正な形式のトークン",
