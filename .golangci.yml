@@ -17,6 +17,7 @@ linters-settings:
   gosec:
     excludes:
       - G404 # Insecure random number source (rand)
+      - G109 # Potential Integer overflow made by strconv.Atoi result conversion to int16/32
 
 issues:
   exclude-rules:
