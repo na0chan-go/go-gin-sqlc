@@ -25,12 +25,6 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.txt
-          fail_ci_if_error: true
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
